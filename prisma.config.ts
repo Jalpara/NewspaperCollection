@@ -9,6 +9,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Keep client generation working in clean CI/Vercel environments
+    // even when DATABASE_URL is not injected at install time.
+    url: process.env["DATABASE_URL"] ?? "file:./dev.db",
   },
 });
