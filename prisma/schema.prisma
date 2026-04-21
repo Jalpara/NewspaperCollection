@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum BillStatus {
+  unpaid
+  paid
+  partial
+}
+
+enum TransactionStatus {
+  recorded
+  confirmed
+  pending
+  cancelled
+}
+
+enum PaymentMethod {
+  upi
+  cash
+}
+
+enum SessionRole {
+  admin
+  customer
+}
+
+model AdminUser {
+  id           String        @id @default(cuid())
+  username     String        @unique
+  name         String
+  passwordHash String
+  sessions     AuthSession[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model AuthSession {
+  id          String      @id @default(cuid())
+  token       String      @unique
+  role        SessionRole
+  adminUserId String?
+  customerId  Int?
+  expiresAt   DateTime
+  createdAt   DateTime    @default(now())
+  adminUser   AdminUser?  @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([role, expiresAt])
+}
+
+model CustomerOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  code       String
+  customerId Int?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([phone, expiresAt])
+}
+
+model Newspaper {
+  id            Int                 @id @default(autoincrement())
+  name          String              @unique
+  basePrice     Float
+  active        Boolean             @default(true)
+  subscriptions CustomerNewspaper[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([active])
+}
+
+model Customer {
+  id            Int                 @id @default(autoincrement())
+  name          String
+  phone         String              @unique
+  flatNo        String?
+  buildingName  String?
+  address       String
+  active        Boolean             @default(true)
+  subscriptions CustomerNewspaper[]
+  bills         Bill[]
+  transactions  Transaction[]
+  sessions      AuthSession[]
+  otps          CustomerOtp[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([name])
+  @@index([phone])
+  @@index([active])
+}
+
+model CustomerNewspaper {
+  id           Int       @id @default(autoincrement())
+  customerId   Int
+  newspaperId  Int
+  customPrice  Float?
+  deliveryDays String
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  newspaper    Newspaper @relation(fields: [newspaperId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, newspaperId])
+  @@index([customerId, active])
+}
+
+model Bill {
+  id              Int           @id @default(autoincrement())
+  customerId      Int
+  month           Int
+  year            Int
+  totalAmount     Float
+  previousBalance Float         @default(0)
+  grandTotal      Float
+  billNote        String?
+  qrPayload       String
+  status          BillStatus    @default(unpaid)
+  generatedAt     DateTime      @default(now())
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+
+  @@unique([customerId, month, year])
+  @@index([month, year, status])
+  @@index([customerId, year, month])
+}
+
+model Transaction {
+  id          Int               @id @default(autoincrement())
+  customerId  Int
+  billId      Int?
+  amount      Float
+  paymentMethod PaymentMethod   @default(upi)
+  paymentNote String?
+  timestamp   DateTime          @default(now())
+  status      TransactionStatus @default(recorded)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  customer    Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bill        Bill?             @relation(fields: [billId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, timestamp])
+  @@index([billId, timestamp])
+}
