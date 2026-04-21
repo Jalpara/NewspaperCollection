@@ -8,9 +8,10 @@ import {
   roundCurrency,
 } from "../src/lib/billing";
 import { createPasswordHash } from "../src/lib/auth";
+import { getDatabaseUrl } from "../src/lib/database-url";
 
 const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL ?? "file:./dev.db",
+  url: getDatabaseUrl(),
 });
 
 const prisma = new PrismaClient({ adapter });
